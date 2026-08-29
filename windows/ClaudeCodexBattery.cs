@@ -2359,6 +2359,13 @@ namespace ClaudeCodexBattery
             UpdateSelectionVisuals();
         }
 
+        internal bool HandleCharacterSelectionKey(CharacterCardButton card, Keys keyData)
+        {
+            if (card == null || keyData != Keys.Enter) return false;
+            CharacterCard_Click(card, EventArgs.Empty);
+            return true;
+        }
+
         private void UpdateSelectionVisuals()
         {
             bool classic = classicOption != null && classicOption.Checked;
@@ -2399,6 +2406,7 @@ namespace ClaudeCodexBattery
             for (int i = 0; i < characterCards.Count; i++) if (characterCards[i].Focused) index = i;
             if (index >= 0)
             {
+                if (HandleCharacterSelectionKey(characterCards[index], keyData)) return true;
                 int next = index;
                 if (keyData == Keys.Left && index % 3 > 0) next--;
                 if (keyData == Keys.Right && index % 3 < 2) next++;

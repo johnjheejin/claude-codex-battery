@@ -298,6 +298,15 @@ public static class ParserTests
             }
             CheckBox reduceMotion = (CheckBox)GetPrivateField(typeof(CharacterPickerForm), picker, "reduceMotionCheck");
             AssertTrue(reduceMotion.Checked, "Picker loads reduced-motion preference");
+
+            TrayApplicationContext.CurrentVisualId = "builtin:cat";
+            AssertTrue(picker.HandleCharacterSelectionKey(picker.CharacterCards[4], Keys.Enter),
+                "Enter on a character card is handled as selection");
+            AssertEqual("builtin:cat", TrayApplicationContext.CurrentVisualId,
+                "Enter on a character card does not apply the dialog");
+            Label selectedLabel = (Label)GetPrivateField(typeof(CharacterPickerForm), picker, "selectedLabel");
+            AssertTrue(selectedLabel.Text.Contains("Sproutling"),
+                "Enter on a character card updates the pending selection");
         }
 
         using (CharacterPickerForm classicPicker = new CharacterPickerForm(context, "classic", false))
