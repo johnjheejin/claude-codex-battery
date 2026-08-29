@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows.Forms;
 using ClaudeCodexBattery;
 
@@ -13,6 +14,22 @@ public static class ParserTests
 
     [STAThread]
     public static int Main()
+    {
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.ThrowException);
+        Console.WriteLine("ParserTests: start | apartment=" + Thread.CurrentThread.GetApartmentState());
+        try
+        {
+            return RunTests();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("ParserTests: unhandled " + ex.GetType().FullName + ": " + ex.Message);
+            if (!string.IsNullOrEmpty(ex.StackTrace)) Console.Error.WriteLine(ex.StackTrace);
+            return 1;
+        }
+    }
+
+    private static int RunTests()
     {
         TrayApplicationContext parser = new TrayApplicationContext(true);
 
@@ -102,7 +119,10 @@ public static class ParserTests
         AssertTrue(parser.TryBeginRefresh(), "Refresh gate reopens after completion");
         parser.EndRefresh();
 
-        string cacheDirectory = Path.Combine(Path.GetTempPath(), "ClaudeCodexBatteryTests-" + Guid.NewGuid().ToString("N"));
+        // Some CI and agent sandboxes allow writes only below the checkout. Keep
+        // this disposable fixture local instead of assuming the user temp path is writable.
+        string cacheDirectory = Path.Combine(Environment.CurrentDirectory,
+            ".parser-tests-" + Guid.NewGuid().ToString("N"));
         string cacheFile = Path.Combine(cacheDirectory, "usage.json");
         try
         {
@@ -139,13 +159,22 @@ public static class ParserTests
         AssertFalse(visibilityRoundTrip.Get("codex5h"), "Visibility round trip preserves Codex 5h");
         AssertTrue(visibilityRoundTrip.Get("claudeWeek"), "Visibility round trip preserves shown rows");
 
-        RunCharacterStateTests();
-        RunCharacterRegistryTests();
-        RunCharacterRendererTests();
-        RunCharacterPickerTests();
+        RunPhase("mascot-state", RunCharacterStateTests);
+        RunPhase("mascot-registry", RunCharacterRegistryTests);
+        RunPhase("mascot-renderer-gdi", RunCharacterRendererTests);
+        RunPhase("mascot-picker-winforms", RunCharacterPickerTests);
 
         if (failures == 0) Console.WriteLine("Parser, refresh gate, cache, settings, and mascot tests passed.");
         return failures == 0 ? 0 : 1;
+    }
+
+    private static void RunPhase(string name, Action action)
+    {
+        Stopwatch timer = Stopwatch.StartNew();
+        Console.WriteLine("ParserTests: begin " + name);
+        action();
+        timer.Stop();
+        Console.WriteLine("ParserTests: end " + name + " | elapsedMs=" + timer.ElapsedMilliseconds);
     }
 
     private static void ResetUsage()
